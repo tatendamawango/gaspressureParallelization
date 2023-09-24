@@ -22,6 +22,17 @@ public class CarDesc
 	public string DriverNameSurname { get; set; }
 }
 
+public class ContainerDesc
+{
+	public double Mass {  get; set; }
+
+	public double Temperature { get; set; }
+	public double Pressure { get; set;}
+
+    public double GasConstant => 8.314;
+
+    public double Volume => 1;	
+}
 
 /// <summary>
 /// Descriptor of pass atempt result
@@ -38,6 +49,15 @@ public class PassAttemptResult
 	/// </summary>
 	public string CrashReason { get; set; }
 }
+
+public class ContainerLimits
+{
+    public double lowerLimit => 80000;
+    public double upperLimit => 95000;
+    public double implosionLimit => 50000;
+    public double explosionLimit => 250000;
+}
+
 
 
 /// <summary>
@@ -66,6 +86,12 @@ public interface IContainerService
 	/// </summary>
 	/// <returns>Current light state.</returns>				
 	LightState GetLightState();
+
+	ContainerLimits GetContainerLimits();
+
+	ContainerDesc ContainerInfo();
+
+	void SetMass(double mass);
 
 	/// <summary>
 	/// Queue give car at the light. Will only succeed if light is red.

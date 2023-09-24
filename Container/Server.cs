@@ -78,7 +78,7 @@ public class Server
 
 		//add SimpleRPC services
 		builder.Services
-			.AddSimpleRpcServer(new HttpServerTransportOptions { Path = "/simplerpc" })
+			.AddSimpleRpcServer(new HttpServerTransportOptions { Path = "/gaspressure" })
 			.AddSimpleRpcHyperionSerializer();
 
 		//add our custom services

@@ -30,6 +30,13 @@ public class TrafficLightState
 	public List<int> CarQueue = new List<int>();
 }
 
+public class ContainerStuff
+{
+	public readonly object AccessLock = new object();
+
+	public ContainerLimits ContainerLimits = new ContainerLimits();
+}
+
 
 /// <summary>
 /// <para>Traffic light logic.</para>
@@ -51,12 +58,17 @@ class ContainerLogic
 	/// State descriptor.
 	/// </summary>
 	private TrafficLightState mState = new TrafficLightState();
-	
 
 	/// <summary>
-	/// Constructor.
+	/// Container State Descriptor
 	/// </summary>
-	public ContainerLogic()
+	private ContainerStuff cState = new ContainerStuff();
+
+    public ContainerDesc container = new ContainerDesc() { Mass = 0.00, Temperature = 273.15 };
+    /// <summary>
+    /// Constructor.
+    /// </summary>
+    public ContainerLogic()
 	{
 		//start the background task
 		mBgTaskThread = new Thread(BackgroundTask);
@@ -85,6 +97,32 @@ class ContainerLogic
 		lock( mState.AccessLock )
 		{
 			return mState.LightState;
+		}
+	}
+
+	
+
+	public void updatecontainer(double mass)
+	{
+		lock ( mState.AccessLock )
+		{
+			container.Mass += mass;
+		}
+	}
+
+	public ContainerLimits GetLimits()
+	{
+		lock ( mState.AccessLock )
+		{
+			return cState.ContainerLimits;
+		}
+	}
+
+	public ContainerDesc ContainerDetails()
+	{
+		lock (mState.AccessLock )
+		{
+			return container;
 		}
 	}
 
@@ -222,26 +260,21 @@ class ContainerLogic
 	/// Background task for the traffic light.
 	/// </summary>
 	public void BackgroundTask()
-	{
-		//intialize random number generator
-		var rnd = new Random();
-
-		//
-		while( true )
-		{
-			//sleep a while
-			Thread.Sleep(500 + rnd.Next(1500));
-
-			//switch the light
-			lock( mState.AccessLock )
-			{
-				mState.LightState = 
-					mState.LightState == LightState.Red 
-					? LightState.Green 
-					: LightState.Red;
-
-				mLog.Info($"New light state is '{mState.LightState}'.");
-			}
-		}
-	}
+	{      
+        while (true)
+        {
+            Thread.Sleep(2000);
+            lock (cState.AccessLock)
+            {
+                var random = new Random();
+                double rnd = random.NextDouble() * 6 - 3;
+                container.Temperature += rnd;
+                mLog.Info($"New temperature is {container.Temperature:F2}\t\t\t\tChange: {rnd:F2}");
+                container.Pressure = container.Mass * container.Temperature * container.GasConstant / container.Volume;
+                mLog.Info($"New Mass is {container.Mass:F2}");
+                mLog.Info($"New Pressure is {container.Pressure:F2}\n");
+            }
+            
+        }
+    }
 }

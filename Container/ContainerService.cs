@@ -1,5 +1,6 @@
 namespace Servers;
 
+using Microsoft.AspNetCore.Routing.Constraints;
 using Services;
 
 /// <summary>
@@ -8,7 +9,7 @@ using Services;
 public class ContainerService : IContainerService
 {
 	//NOTE: non-singleton service would need logic to be static or injected from a singleton instance
-	private readonly ContainerLogic mLogic = new ContainerLogic();
+	private readonly ContainerLogic mLogic = new();
 
 
 	/// <summary>
@@ -58,4 +59,19 @@ public class ContainerService : IContainerService
 	{
 		return mLogic.Pass(car);
 	}
+
+    public void SetMass(double mass)
+    {
+        mLogic.updatecontainer(mass);
+    }
+
+    public ContainerLimits GetContainerLimits()
+    {
+        return mLogic.GetLimits();
+    }
+
+    public ContainerDesc ContainerInfo()
+    {
+        return mLogic.ContainerDetails();
+    }
 }
