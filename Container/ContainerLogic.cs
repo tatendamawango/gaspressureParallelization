@@ -4,9 +4,6 @@ using NLog;
 
 using Services;
 
-/// <summary>
-/// Traffic light state descritor.
-/// </summary>
 public class TrafficLightState
 {
 	/// <summary>
@@ -14,26 +11,21 @@ public class TrafficLightState
 	/// </summary>
 	public readonly object AccessLock = new object();
 
-	/// <summary>
-	/// Last unique ID value generated.
-	/// </summary>
-	public int LastUniqueId;
-
-	/// <summary>
-	/// Light state.
-	/// </summary>
-	public LightState LightState;
-
-	/// <summary>
-	/// Car queue.
-	/// </summary>
-	public List<int> CarQueue = new List<int>();
 }
 
+/// <summary>
+/// Container state descritor.
+/// </summary>
 public class ContainerStuff
 {
-	public readonly object AccessLock = new object();
+    /// <summary>
+    /// Access lock.
+    /// </summary>
+    public readonly object AccessLock = new object();
 
+    /// <summary>
+    /// Access to Container limits
+    /// </summary>
 	public ContainerLimits ContainerLimits = new ContainerLimits();
 }
 
@@ -74,35 +66,11 @@ class ContainerLogic
 		mBgTaskThread = new Thread(BackgroundTask);
 		mBgTaskThread.Start();
 	}
-
-	/// <summary>
-	/// Get next unique ID from the server. Is used by cars to acquire client ID's.
-	/// </summary>
-	/// <returns>Unique ID.</returns>
-	public int GetUniqueId() 
-	{
-		lock( mState.AccessLock )
-		{
-			mState.LastUniqueId += 1;
-			return mState.LastUniqueId;
-		}
-	}
-
-	/// <summary>
-	/// Get current light state.
-	/// </summary>
-	/// <returns>Current light state.</returns>				
-	public LightState GetLightState() 
-	{
-		lock( mState.AccessLock )
-		{
-			return mState.LightState;
-		}
-	}
-
-	
-
-	public void updatecontainer(double mass)
+    /// <summary>
+    /// Updates the container's mass.
+    /// </summary>
+    /// <param name="mass">The amount of mass to add.</param>
+    public void updatecontainer(double mass)
 	{
 		lock ( mState.AccessLock )
 		{
@@ -110,7 +78,11 @@ class ContainerLogic
 		}
 	}
 
-	public ContainerLimits GetLimits()
+    /// <summary>
+    /// Gets the container's limits.
+    /// </summary>
+    /// <returns>The container's limits.</returns>
+    public ContainerLimits GetLimits()
 	{
 		lock ( mState.AccessLock )
 		{
@@ -118,7 +90,39 @@ class ContainerLogic
 		}
 	}
 
-	public ContainerDesc ContainerDetails()
+    /// <summary>
+    /// Resets the simulation.
+    /// </summary>
+    public void ResetSimulation()
+    {
+        lock (mState.AccessLock)
+        {
+            if (container.Pressure >= cState.ContainerLimits.explosionLimit)
+			{
+				mLog.Info($"Container Exploded. Simulation is Reset");
+				container.Mass = 0;
+				container.Temperature = 273.15;
+                Console.Clear();
+                mLog.Info("Server is about to start");
+				Thread.Sleep(500 + new Random().Next(1500));
+            }
+            else if (container.Pressure <= cState.ContainerLimits.implosionLimit)
+			{
+                mLog.Info($"Container Imploded. Simulation is Reset");
+                container.Mass = 0;
+                container.Temperature = 273.15;
+				Console.Clear();
+                mLog.Info("Server is about to start");
+                Thread.Sleep(500 + new Random().Next(1500));
+            }
+        }
+    }
+
+    /// <summary>
+    /// Gets the container's details.
+    /// </summary>
+    /// <returns>The container's details.</returns>
+    public ContainerDesc ContainerDetails()
 	{
 		lock (mState.AccessLock )
 		{
@@ -126,153 +130,44 @@ class ContainerLogic
 		}
 	}
 
-	/// <summary>
-	/// Queue give car at the light. Will only succeed if light is red.
-	/// </summary>
-	/// <param name="car">Car to queue.</param>
-	/// <returns>True on success, false on failure.</returns>
-	public bool Queue(CarDesc car)
+    /// <summary>
+    /// Gets the container's control state.
+    /// </summary>
+    /// <returns>returns 1 for input component to work and 2 for output component to work</returns>
+    public int ContainerControl()
 	{
-		lock( mState.AccessLock )
+		lock (mState.AccessLock)
 		{
-			mLog.Info($"Car {car.CarId}, RegNr. {car.CarNumber} Driver {car.DriverNameSurname}, is trying to queue.");
-
-			//light not red? do not allow to queue
-			if( mState.LightState != LightState.Red )
+			if (container.Pressure < cState.ContainerLimits.lowerLimit)
 			{
-				mLog.Info("Queing denied, because light is not red.");
-				return false;
+                return 1;
 			}
-
-			//already in queue? deny
-			if( mState.CarQueue.Exists(it => it == car.CarId) )
+			else if (container.Pressure > cState.ContainerLimits.upperLimit)
 			{
-				mLog.Info("Queing denied, because car is already in queue.");
-				return false;
+                return 2;
 			}
-
-			//queue
-			mState.CarQueue.Add(car.CarId);
-			mLog.Info("Queuing allowed.");
-
-			//
-			return true;
+            return 0;
 		}
 	}
 
 	/// <summary>
-	/// Tell if car is first in line in queue.
-	/// </summary>
-	/// <param name="carId">ID of the car to check for.</param>
-	/// <returns>True if car is first in line. False if not first in line or not in queue.</returns>
-	public bool IsFirstInLine(int carId)
-	{
-		lock( mState.AccessLock )
-		{
-			//no queue entries? return false
-			if( mState.CarQueue.Count == 0 )
-				return false;
-
-			//check if first in line
-			return (mState.CarQueue[0] == carId);
-		}
-	}
-
-	/// <summary>
-	/// Try passing the traffic light. If car is in queue, it will be removed from it.
-	/// </summary>
-	/// <param name="car">Car descriptor.</param>
-	/// <returns>Pass result descriptor.</returns>
-	public PassAttemptResult Pass(CarDesc car)
-	{
-		//prepare result descriptor
-		var par = new PassAttemptResult();
-
-		lock( mState.AccessLock )
-		{
-			mLog.Info($"Car {car.CarId}, RegNr. {car.CarNumber} Driver {car.DriverNameSurname}, is trying to pass.");
-
-			//light is red? do not allow to pass
-			if( mState.LightState != LightState.Red )
-			{
-				//indicate car crashed
-				par.IsSuccess = false;
-				
-				//set crash reason
-				if( mState.CarQueue.Exists(it => it == car.CarId) )
-				{
-					if( mState.CarQueue[0] == car.CarId )
-						par.CrashReason = "tried to run a red light";
-					else
-						par.CrashReason = "hit a car in front of it";
-					
-					//remove car from queue
-					mState.CarQueue = mState.CarQueue.Where(it => it != car.CarId).ToList();
-				}
-				else
-				{
-					par.CrashReason = "tried to run a red light";
-				}
-			}
-			//light is green, allow to pass if not in queue or first in queue
-			else
-			{
-				//car in queue?
-				if( mState.CarQueue.Exists(it => it == car.CarId) )
-				{
-					//first in queue? allow to pass
-					if( mState.CarQueue[0] == car.CarId )
-					{
-						par.IsSuccess = true;						
-					}
-					//not first in queue, crash
-					else
-					{
-						par.IsSuccess = false;
-						par.CrashReason = "hit a car in front of it";
-					}
-
-					//remove car from queue
-					mState.CarQueue = mState.CarQueue.Where(it => it != car.CarId).ToList();
-				}
-				//car not in queue
-				{
-					par.IsSuccess = true;
-				}
-			}
-
-			//log result
-			if( par.IsSuccess )
-			{
-				mLog.Info("Car has passed.");
-			}
-			else
-			{
-				mLog.Info($"Car has crashed because '{par.CrashReason}'.");
-			}
-
-			//
-			return par;
-		}
-	}
-
-	/// <summary>
-	/// Background task for the traffic light.
+	/// Background task for the container
 	/// </summary>
 	public void BackgroundTask()
 	{      
         while (true)
         {
             Thread.Sleep(2000);
-            lock (cState.AccessLock)
+            lock (mState.AccessLock)
             {
                 var random = new Random();
-                double rnd = random.NextDouble() * 6 - 3;
+                double rnd = random.NextDouble() * 5 - 1;
                 container.Temperature += rnd;
                 mLog.Info($"New temperature is {container.Temperature:F2}\t\t\t\tChange: {rnd:F2}");
                 container.Pressure = container.Mass * container.Temperature * container.GasConstant / container.Volume;
                 mLog.Info($"New Mass is {container.Mass:F2}");
                 mLog.Info($"New Pressure is {container.Pressure:F2}\n");
+				ResetSimulation();
             }
             
         }

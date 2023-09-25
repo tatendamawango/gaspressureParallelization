@@ -68,16 +68,18 @@ class OuputClient
 				var sp = sc.BuildServiceProvider();
 
 				var container = sp.GetService<IContainerService>();
-				
-				while( true )
-				{
-					if (container.ContainerInfo().Pressure >= container.GetContainerLimits().upperLimit)
-					{
+
+                mLog.Info($"Output client actives");
+                while ( true )
+				{   
+                    if (container.ActiveClient() == 2)
+                    {
                         var random = new Random();
-                        double rd = random.NextDouble() * 5;
+                        double rd = random.NextDouble() * 10;
                         container.SetMass(-rd);
-						mLog.Info($"Output client working. \t\t\t Pressure was {container.ContainerInfo().Pressure}");
-                        Thread.Sleep(500 + new Random().Next(1500));
+                        mLog.Info($"Output client working. \t\t\t Pressure was {container.ContainerInfo().Pressure}");
+                        mLog.Info($"Mass reduction: {-rd}");
+                        Thread.Sleep(2000);
                     }
                 }				
 			}

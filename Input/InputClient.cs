@@ -73,15 +73,17 @@ class OuputClient
 
                 var conDesc = new ContainerDesc();
 
+                mLog.Info($"Input client actives");
                 while (true)
                 {
-                    if (container.ContainerInfo().Pressure <= container.GetContainerLimits().lowerLimit)
+                    if (container.ActiveClient() == 1)
                     {
                         var random = new Random();
-                        double rd = random.NextDouble() * 5;
+                        double rd = random.NextDouble() * 10;
                         container.SetMass(rd);
                         mLog.Info($"Input client working. \t\t\t Pressure was {container.ContainerInfo().Pressure}");
-                        Thread.Sleep(500 + new Random().Next(1500));
+                        mLog.Info($"Mass reduction: {rd}");
+                        Thread.Sleep(2000);
                     }
                 }               
             }
